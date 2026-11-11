@@ -1,0 +1,32 @@
+import type { RequestSpec } from "./types";
+export function defaultSpec(): RequestSpec {
+  return {
+    description: "",
+    quantity: 1,
+    unit: "items",
+    dimensions: "",
+    material: "",
+    colour: "",
+    exactText: "",
+    requiredElement: "",
+    visualNotes: "",
+    deadline: new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10),
+    currency: "USD",
+    budget: 150000,
+    destination: "",
+    taxIncluded: true,
+    shippingIncluded: true,
+    alternatives: "",
+    supplierIds: [],
+    discover: false,
+    region: "",
+    maxContacts: 3,
+    language: "English",
+    channel: "Email",
+    outreachStart: "09:00",
+    outreachEnd: "17:00",
+    timezone: "Asia/Kolkata",
+    negotiable: "Unit price only; stay within total budget.",
+    askOwner: "Any specification, quantity, currency, or deadline change.",
+  };
+}
