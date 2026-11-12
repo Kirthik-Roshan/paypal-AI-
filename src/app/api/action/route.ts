@@ -148,7 +148,42 @@ export async function POST(request: Request) {
       }
     } else if (body.action === "discovery.start")
       result = queueDiscovery(w, rid);
-    else if (body.action === "outreach.call")
+    else if (body.action === "outreach.schedule") {
+      const req = getRequest(w.id, rid);
+      if (w.mode !== "sandbox")
+        throw new DomainError(
+          "Connect owner sign-in before changing supplier calling hours.",
+          503,
+        );
+      const schedule = z
+        .object({
+          start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+          end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+        })
+        .parse(data);
+      if (schedule.start >= schedule.end)
+        throw new DomainError(
+          "Choose a same-day window with the end after the start. For calls after midnight, use a window starting at 00:00.",
+        );
+      run(
+        "UPDATE requests SET spec=?,updated_at=? WHERE id=? AND workspace_id=?",
+        JSON.stringify({
+          ...req.spec,
+          outreachStart: schedule.start,
+          outreachEnd: schedule.end,
+        }),
+        now(),
+        rid,
+        w.id,
+      );
+      audit(
+        w.id,
+        rid,
+        "outreach",
+        `Owner changed supplier calling hours from ${req.spec.outreachStart}–${req.spec.outreachEnd} to ${schedule.start}–${schedule.end} ${req.spec.timezone}.`,
+      );
+      result = { saved: true };
+    } else if (body.action === "outreach.call")
       result = await launchRequestCall(
         w,
         rid,

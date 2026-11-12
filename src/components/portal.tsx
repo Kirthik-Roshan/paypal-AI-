@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { jsonFetch } from "./context";
 import { Badge, Button, Field, Logo, Modal, Notice } from "./ui";
+import type { CallQuoteDraft } from "@/lib/providers/call-quote";
 type PortalData = {
   title: string;
   code: string;
@@ -26,6 +27,7 @@ type PortalData = {
   requirements: Record<string, any>;
   assets: { id: string; name: string; role: string }[];
   quotes: any[];
+  callDraft: { callId: string; fields: CallQuoteDraft } | null;
   agreement: {
     id: string;
     amount: number;
@@ -72,11 +74,30 @@ export function SupplierPortal({ token }: { token: string }) {
   useEffect(() => {
     void load()
       .then((d) => {
-        setPaymentContact(d.paymentContact || "");
+        setPaymentContact(
+          d.paymentContact || d.callDraft?.fields.paymentContact.value || "",
+        );
         const q = d.quotes[0];
+        const draft = d.callDraft?.fields;
         setForm((f) => ({
           ...f,
           quantity: d.requirements.quantity,
+          ...(!q && draft
+            ? {
+                quantity: draft.quantity.value
+                  ? Number(draft.quantity.value)
+                  : d.requirements.quantity,
+                currency: draft.currency.value || "",
+                unitPrice: draft.unitPrice.value || "",
+                shipping: draft.shipping.value || "",
+                tax: draft.tax.value || "",
+                completionDate: draft.completionDate.value || "",
+                validUntil: draft.validUntil.value || "",
+                paymentTerms: draft.paymentTerms.value || "",
+                exclusions: draft.exclusions.value || "",
+                meetsRequirements: false,
+              }
+            : {}),
           ...(q
             ? {
                 currency: q.currency,
@@ -512,6 +533,28 @@ export function SupplierPortal({ token }: { token: string }) {
           </section>
         )}
         <section className="panel portal-quote" id="written-quotation">
+          {data.callDraft && !data.quotes.length && (
+            <div className="panel-body">
+              <Notice tone="neutral">
+                Your call terms have been prefilled as an AI draft. Review the
+                prices, units, currency and dates, correct anything inaccurate,
+                and complete missing fields before submitting. This is not yet a
+                written quotation.
+              </Notice>
+              <details>
+                <summary>Review details captured from your call</summary>
+                {Object.entries(data.callDraft.fields)
+                  .filter(([, entry]) => entry.value !== null)
+                  .map(([key, entry]) => (
+                    <div className="fact-evidence" key={key}>
+                      <span>{key}</span>
+                      <strong>{entry.value}</strong>
+                      <blockquote>{entry.evidence}</blockquote>
+                    </div>
+                  ))}
+              </details>
+            </div>
+          )}
           <div className="panel-head">
             <div>
               <h2>
@@ -538,8 +581,10 @@ export function SupplierPortal({ token }: { token: string }) {
               <Field label="Currency">
                 <select
                   value={form.currency}
+                  required
                   onChange={(e) => update("currency", e.target.value)}
                 >
+                  <option value="">Confirm currency</option>
                   {["USD", "INR", "EUR", "GBP", "AUD", "CAD"].map((c) => (
                     <option key={c}>{c}</option>
                   ))}

@@ -1,5 +1,6 @@
 "use client";
 import { date } from "@/lib/format";
+import Image from "next/image";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -35,6 +36,18 @@ const icons: Record<string, typeof CreditCard> = {
   auth: LockKeyhole,
   storage: HardDrive,
 };
+const providerLogos = new Set([
+  "hosting",
+  "email",
+  "paypal",
+  "sarvam",
+  "search",
+  "agstudio",
+  "retrieval",
+  "auth",
+  "intake",
+  "places",
+]);
 export function SettingsPage() {
   const { data, action, toast, refresh } = useWorkspace();
   const router = useRouter();
@@ -233,7 +246,18 @@ export function SettingsPage() {
             <section className="panel integration-card" key={p.id}>
               <div className="integration-top">
                 <span className={`integration-icon integration-${p.id}`}>
-                  <Icon size={23} strokeWidth={1.7} />
+                  {providerLogos.has(p.id) ? (
+                    <Image
+                      src={`/logos/${p.id}.png`}
+                      alt=""
+                      width={28}
+                      height={28}
+                      unoptimized
+                      className="provider-logo"
+                    />
+                  ) : (
+                    <Icon size={23} strokeWidth={1.7} />
+                  )}
                 </span>
                 <div>
                   <h3>{p.name}</h3>

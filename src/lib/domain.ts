@@ -14,6 +14,7 @@ import {
   run,
 } from "./db";
 import { currencies, minor } from "./money";
+import { callQuoteSchema } from "./providers/call-quote";
 import type {
   Agreement,
   Asset,
@@ -364,6 +365,23 @@ export function portalData(token: string) {
   );
   const agreement = getAgreement(inv.workspace_id, request.id);
   const { spec } = request;
+  const latestCall = one<{ id: string; facts: string | null }>(
+    "SELECT id,facts FROM calls WHERE workspace_id=? AND request_id=? AND supplier_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1",
+    inv.workspace_id,
+    request.id,
+    supplier.id,
+  );
+  let callDraft = null;
+  if (latestCall?.facts) {
+    try {
+      const metadata = JSON.parse(latestCall.facts);
+      const parsed = callQuoteSchema.safeParse(metadata.quoteDraft);
+      if (metadata.requirementVersion === request.version && parsed.success)
+        callDraft = { callId: latestCall.id, fields: parsed.data };
+    } catch {
+      /* Legacy call metadata cannot supply a draft. */
+    }
+  }
   return {
     title: request.title,
     code: request.code,
@@ -391,6 +409,7 @@ export function portalData(token: string) {
     },
     assets,
     quotes,
+    callDraft,
     agreement:
       agreement?.supplier_id === supplier.id
         ? {

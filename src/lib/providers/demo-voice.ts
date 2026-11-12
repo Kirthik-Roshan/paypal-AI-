@@ -14,6 +14,7 @@ import { demoState } from "../demo";
 import { getRequest } from "../domain";
 import type { Call, Supplier, Workspace } from "../types";
 import { procurementInstructions } from "./voice";
+import { extractCallQuote, transcriptFingerprint } from "./call-quote";
 
 const base = "https://apps.sarvam.ai/api";
 const vars = [
@@ -239,7 +240,7 @@ export async function syncRequestCall(
   transport: typeof fetch = fetch,
 ) {
   ready(w);
-  getRequest(w.id, requestId);
+  const currentRequest = getRequest(w.id, requestId);
   const call = requireRecord(
     one<Call>(
       "SELECT * FROM calls WHERE id=? AND workspace_id=? AND request_id=?",
@@ -382,6 +383,30 @@ export async function syncRequestCall(
         "Provider variable check unavailable or identity did not match. Refresh again; inspect Sarvam Analytics if this persists.";
     }
   }
+  if (
+    ended &&
+    transcript &&
+    facts.requirementVersion === currentRequest.version
+  ) {
+    const fingerprint = transcriptFingerprint(transcript);
+    if (facts.quoteDraftFingerprint !== fingerprint) {
+      delete facts.quoteDraft;
+      try {
+        facts.quoteDraft = await extractCallQuote(
+          transcript,
+          currentRequest.spec.unit,
+          call.created_at,
+        );
+        facts.quoteDraftFingerprint = fingerprint;
+        delete facts.quoteDraftError;
+      } catch (e) {
+        facts.quoteDraftError =
+          e instanceof DomainError
+            ? e.message
+            : "Call quotation extraction failed. Refresh again or enter terms manually.";
+      }
+    }
+  }
   run(
     "UPDATE calls SET status=?,transcript=?,error=?,facts=?,updated_at=? WHERE id=?",
     ended
@@ -399,7 +424,7 @@ export async function syncRequestCall(
     w.id,
     requestId,
     "call",
-    "Sarvam attempt refreshed through authenticated Analytics API. Transcript terms and opt-out require owner review; no quotation or recipient was inferred.",
+    "Sarvam attempt refreshed. Any extracted call terms are an unconfirmed draft for supplier review; no quotation was submitted or payment recipient verified.",
   );
   return { synced: true };
 }

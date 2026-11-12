@@ -181,13 +181,27 @@ export function EvidenceReview({ request: r }: { request: PurchaseRequest }) {
     [acknowledge, setAcknowledge] = useState(false),
     [viewSub, setViewSub] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  const [referenceId, setReferenceId] = useState("");
   const a = data.agreements.find((a) => a.request_id === r.id);
   const submissions = data.submissions.filter((s) => s.request_id === r.id);
   const latest = submissions[0];
   const viewed = submissions.find((s) => s.id === viewSub) || latest;
   const asset = data.assets.find((a) => a.id === viewed?.asset_id);
   const referenceIds: string[] = a ? JSON.parse(a.asset_ids) : [];
-  const reference = data.assets.find((a) => referenceIds.includes(a.id));
+  const references = data.assets.filter(
+    (file) =>
+      file.request_id === r.id &&
+      (referenceIds.includes(file.id) || file.role === "Buyer context"),
+  );
+  const selectedReference =
+    references.find((file) => file.id === referenceId) ||
+    references.find((file) => referenceIds.includes(file.id)) ||
+    references[0];
+  const reference =
+    selectedReference && referenceIds.includes(selectedReference.id)
+      ? selectedReference
+      : undefined;
+  const privateReference = reference ? undefined : selectedReference;
   const review = data.reviews.find(
     (v) =>
       v.request_id === r.id &&
@@ -383,11 +397,48 @@ export function EvidenceReview({ request: r }: { request: PurchaseRequest }) {
       </div>
       <div className={`evidence-columns evidence-show-${mobileTab}`}>
         <div className="reference-column">
+          {references.length > 1 && (
+            <Field label="Buyer reference file">
+              <select
+                value={selectedReference?.id || ""}
+                onChange={(event) => setReferenceId(event.target.value)}
+              >
+                {references.map((file) => (
+                  <option key={file.id} value={file.id}>
+                    {file.name} ·{" "}
+                    {referenceIds.includes(file.id)
+                      ? "Approved reference"
+                      : "Private buyer context"}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <DocumentPreview
-            asset={reference}
-            label="Approved reference"
-            version={`Requirements v${r.version}`}
+            key={selectedReference?.id || "empty-reference"}
+            asset={reference || privateReference}
+            label={
+              reference
+                ? "Approved reference"
+                : privateReference
+                  ? "Private buyer reference"
+                  : "Approved reference"
+            }
+            version={
+              reference
+                ? `Requirements v${r.version}`
+                : privateReference
+                  ? "Private · not shared"
+                  : `Requirements v${r.version}`
+            }
           />
+          {!reference && (
+            <Notice tone="neutral">
+              {privateReference
+                ? "This chat attachment is private buyer context. It was not included in the supplier’s approved requirements and is not used as an approved reference by document checks."
+                : "No reference file was included in the confirmed requirements. Chat attachments stay private; the confirmed text brief remains the basis for review."}
+            </Notice>
+          )}
           <div className="document-context">
             <span className="section-kicker">EXACT REQUIREMENTS</span>
             <dl>

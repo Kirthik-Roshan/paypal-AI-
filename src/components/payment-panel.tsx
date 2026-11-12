@@ -17,6 +17,7 @@ import { useWorkspace } from "./context";
 import { Badge, Button, Empty, Field, Modal, Notice, Status } from "./ui";
 import { PayPalMark } from "./paypal-brand";
 import { PayPalHandoff } from "./paypal-handoff";
+import { InvoicePanel } from "./invoice-panel";
 export function RequestPayments({ request: r }: { request: PurchaseRequest }) {
   const { data, action } = useWorkspace();
   const params = useSearchParams();
@@ -98,6 +99,7 @@ export function RequestPayments({ request: r }: { request: PurchaseRequest }) {
   }
   return (
     <div className="payment-workspace">
+      <InvoicePanel requestId={r.id} />
       <div className="tab-section-heading">
         <div>
           <h2>Funds move when the details are right.</h2>

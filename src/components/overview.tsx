@@ -280,7 +280,7 @@ export function Overview() {
                 <m.icon size={17} />
               </span>
             </div>
-            <strong>{m.value.toString().padStart(2, "0")}</strong>
+            <strong>{m.value}</strong>
             <div className="metric-note">
               <span className={`metric-note-dot metric-${m.tone}`} />
               {m.note}
@@ -551,7 +551,7 @@ export function RequestsPage() {
   const [search, setSearch] = useState(""),
     [status, setStatus] = useState("All statuses");
   return (
-    <div className="page-enter">
+    <div className="page-enter requests-page">
       <div className="page-heading">
         <div>
           <div className="eyebrow">YOUR PURCHASING WORKSPACE</div>

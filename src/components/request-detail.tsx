@@ -57,7 +57,10 @@ const tabs = [
 export function RequestDetail({ requestId }: { requestId: string }) {
   const { data, action } = useWorkspace();
   const params = useSearchParams();
-  const tab = params.get("tab") || "summary";
+  const requestedTab = params.get("tab") || "summary";
+  const tab = tabs.some((t) => t.id === requestedTab)
+    ? requestedTab
+    : "summary";
   const r = data.requests.find((r) => r.id === requestId);
   const [revision, setRevision] = useState(false),
     [busy, setBusy] = useState(false);
@@ -160,7 +163,10 @@ export function RequestDetail({ requestId }: { requestId: string }) {
       </div>
       <div className="journey-progress">
         {[
-          { label: "Request confirmed", done: r.version > 0 },
+          {
+            label: r.version > 0 ? "Request confirmed" : "Define requirements",
+            done: r.version > 0,
+          },
           { label: "Supplier quotations", done: quoteCount > 0 },
           { label: "Agreement", done: !!agreement?.supplier_accepted },
           {
@@ -174,10 +180,26 @@ export function RequestDetail({ requestId }: { requestId: string }) {
             ),
           },
           { label: "Payment", done: !!stage?.capture_id },
-        ].map((s, i) => (
-          <div key={s.label} className={`${s.done ? "progress-done" : ""}`}>
-            <span>{s.done ? <Check size={12} /> : i + 1}</span>
-            {s.label}
+        ].map((s, i, steps) => (
+          <div
+            key={s.label}
+            className={
+              s.done
+                ? "progress-done"
+                : steps.findIndex((step) => !step.done) === i
+                  ? "progress-current"
+                  : ""
+            }
+            aria-current={
+              !s.done && steps.findIndex((step) => !step.done) === i
+                ? "step"
+                : undefined
+            }
+          >
+            <strong className="journey-label">
+              <span>{s.done ? <Check size={12} /> : i + 1}</span>
+              {s.label}
+            </strong>
             {i < 4 && <i />}
           </div>
         ))}
@@ -199,6 +221,29 @@ export function RequestDetail({ requestId }: { requestId: string }) {
           </Link>
         ))}
       </nav>
+      <div className="request-section-intro">
+        <h2>{tabs.find((t) => t.id === tab)?.label}</h2>
+        <p>
+          {
+            (
+              {
+                summary:
+                  "Your confirmed requirements, current agreement and latest updates.",
+                suppliers:
+                  "Invite suppliers, review discovery results and follow each conversation.",
+                quotes:
+                  "Compare written offers and review the terms before choosing a supplier.",
+                review:
+                  "Check the supplier’s submitted files against your agreed requirements.",
+                payments:
+                  "Review the recipient, approval and verified payment activity.",
+                history:
+                  "Follow the decisions and activity recorded for this request.",
+              } as Record<string, string>
+            )[tab]
+          }
+        </p>
+      </div>
       {tab === "summary" && (
         <div className="summary-layout">
           <div>
@@ -510,6 +555,11 @@ type ConversationFacts = {
     checkedAt: string;
   };
   contextError?: string;
+  quoteDraftError?: string;
+  quoteDraft?: Record<
+    string,
+    { value: string | null; evidence: string | null }
+  >;
 };
 function conversationFacts(raw: string | null | undefined): ConversationFacts {
   if (!raw) return { commercial: [] };
@@ -540,6 +590,14 @@ function CallContextDetails({ facts }: { facts: ConversationFacts }) {
     <div className="note-box">
       <h3>Call context</h3>
       {facts.contextError && <Notice>{facts.contextError}</Notice>}
+      {facts.quoteDraftError && <Notice>{facts.quoteDraftError}</Notice>}
+      {facts.quoteDraft && (
+        <Notice tone="green">
+          Call terms are ready as a supplier-review draft. The private quotation
+          link prefills these terms; the supplier must correct missing or
+          inaccurate fields and submit.
+        </Notice>
+      )}
       {facts.sentContext ? (
         <details>
           <summary>Request details sent to Sarvam</summary>
@@ -931,6 +989,51 @@ function SuppliersTab({ request: r }: { request: PurchaseRequest }) {
             Language: {r.spec.language}. Hours: {r.spec.outreachStart}–
             {r.spec.outreachEnd} {r.spec.timezone}.
           </p>
+          <details>
+            <summary>Change calling hours</summary>
+            <p className="muted">
+              Set the hours agreed with your supplier. This changes this
+              request’s calling window; it does not place a call.
+            </p>
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                setBusy("schedule");
+                try {
+                  await action(
+                    "outreach.schedule",
+                    r.id,
+                    { start: form.get("start"), end: form.get("end") },
+                    "Calling hours updated.",
+                  );
+                } catch {
+                } finally {
+                  setBusy("");
+                }
+              }}
+            >
+              <Field label="Calls from">
+                <input
+                  type="time"
+                  name="start"
+                  defaultValue={r.spec.outreachStart}
+                  required
+                />
+              </Field>
+              <Field label="Calls until">
+                <input
+                  type="time"
+                  name="end"
+                  defaultValue={r.spec.outreachEnd}
+                  required
+                />
+              </Field>
+              <Button type="submit" variant="secondary" disabled={!!busy}>
+                Save calling hours
+              </Button>
+            </form>
+          </details>
           <Notice>
             Requires a configured Sarvam agent, supported destination and an
             allowlisted consenting number. A call is an enquiry; quotes and

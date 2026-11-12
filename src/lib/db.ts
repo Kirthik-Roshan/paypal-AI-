@@ -7,8 +7,20 @@ import type { Audit } from "./types";
 const globalDb = globalThis as unknown as {
   procureDb?: Database.Database;
   intakeSchemaReady?: boolean;
+  invoiceSchemaReady?: boolean;
 };
 export function db() {
+  if (globalDb.procureDb && !globalDb.invoiceSchemaReady) {
+    if (
+      !globalDb.procureDb
+        .prepare("SELECT name FROM migrations WHERE name=?")
+        .get("010_paypal_invoices.sql")
+    ) {
+      globalDb.procureDb.close();
+      globalDb.procureDb = undefined;
+    }
+    globalDb.invoiceSchemaReady = true;
+  }
   if (globalDb.procureDb && !globalDb.intakeSchemaReady) {
     if (
       !globalDb.procureDb

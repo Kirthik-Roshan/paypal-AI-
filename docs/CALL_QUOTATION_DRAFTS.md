@@ -1,0 +1,11 @@
+# Call to prefilled quotation
+
+1. Confirm the request and place an explicitly approved supplier call.
+2. After the call ends, open its conversation under Suppliers & calls and choose **Refresh provider status**. Sarvam Analytics supplies the authenticated transcript and end time; provider data may lag.
+3. For a completed call matching the current requirement version, the server uses the configured OpenAI Responses model (`OPENAI_API_KEY`, `OPENAI_INTAKE_MODEL`) to extract a quotation draft. It uses `store:false`, strict structured output and verbatim supplier-turn evidence. Unknown or unsupported values stay empty. This uses the configured OpenAI account's credits.
+4. Share or email the private quotation link. The supplier opens or reloads it and sees the draft prefilled with supported prices, currency, quantity, shipping, tax, dates, payment terms and exclusions. Supplier-stated payment identity may prefill the separate unverified contact field.
+5. The supplier reviews the captured excerpts, corrects errors, supplies missing details, confirms requirements and submits the written quotation. The buyer then compares submitted quotations normally.
+
+Draft extraction does not create a quote or agreement, confirm a merchant, accept evidence or move money. It never overrides an existing submitted quote. It is scoped by workspace, request, supplier and requirement version; only the latest call is eligible. A changed transcript is extracted again; an unchanged successful transcript reuses its saved draft. Failures are visible in the buyer's call-context panel and can be retried by refreshing.
+
+This is post-call extraction, not live streaming or automatic background polling. The completed call must be refreshed before the supplier opens/reloads the link. The hosted Sarvam agent must use the updated collection/readback instructions in `SARVAM_AGENT_PROMPT.md`; updating that repository file alone does not change the committed hosted agent. Ask for explicit currency, requested price unit, total tax/shipping and complete dates. Percentages, ambiguous currency and unstated costs require clarification. Extracted semantics remain model assessments for supplier review, even when the cited words exist in the transcript.

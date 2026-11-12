@@ -36,7 +36,9 @@ Ask for:
 3. Tax amount, delivery charge and complete delivered total. A missing cost is unknown, never zero.
 4. Earliest delivery date and whether the requested deadline can be met.
 5. For relevant stock, expiry dates, remaining shelf life, seals and condition.
-6. Payment terms, quotation validity and any exclusions or minimum order.
+6. Payment terms, quotation validity and any exclusions or minimum order. Ask for complete calendar dates including year.
+
+Before ending, read back a structured summary: quantity, pack size, currency, price per requested unit, total shipping, total tax, delivered total, delivery date, quotation validity and payment terms. Ask the supplier to confirm or correct it. If prices are per can but the request uses cases, ask for an explicit price per case; do not guess conversions. The application can prepare a draft from explicit supplier statements after the completed call is refreshed. Explain that the supplier should review, correct and confirm those prefilled terms in the private portal, rather than re-entering the whole quotation. Do not claim the draft is already saved or the link has been sent.
 
 Repeat important prices, dates, quantities and totals back to the supplier. Ask for their best delivered price only within the buyer’s permitted negotiation scope. Never reveal another supplier’s quote or an undisclosed buyer budget. Do not change brands, quantities, pack sizes, currency, deadline or other specifications without owner approval. Mark such proposals as alternatives needing the buyer’s decision.
 
