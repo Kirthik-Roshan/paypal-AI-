@@ -53,16 +53,34 @@ export function integrationHealth(): Integration[] {
     {
       id: "email",
       name: "Supplier invitation email",
-      category: "Resend delivery",
+      category:
+        process.env.EMAIL_PROVIDER === "gmail"
+          ? "Gmail delivery"
+          : "Resend delivery",
       status:
-        health(["RESEND_API_KEY", "EMAIL_FROM"]) && publicAppOrigin()
+        health(
+          process.env.EMAIL_PROVIDER === "gmail"
+            ? [
+                "GMAIL_CLIENT_ID",
+                "GMAIL_CLIENT_SECRET",
+                "GMAIL_REFRESH_TOKEN",
+                "GMAIL_SENDER_EMAIL",
+              ]
+            : ["RESEND_API_KEY", "EMAIL_FROM"],
+        ) && publicAppOrigin()
           ? "Configured · unverified"
           : "Setup required",
       detail:
-        "Create a private quotation link, review its recipient, then choose Email invitation. Requires a verified sender domain. Provider acceptance is recorded separately from inbox delivery.",
+        "Create a private quotation link, review its recipient, then choose Email invitation. Gmail requires sender authorization; Resend requires a verified domain. Provider acceptance is recorded separately from inbox delivery.",
       variables: [
-        "RESEND_API_KEY",
-        "EMAIL_FROM",
+        ...(process.env.EMAIL_PROVIDER === "gmail"
+          ? [
+              "GMAIL_CLIENT_ID",
+              "GMAIL_CLIENT_SECRET",
+              "GMAIL_REFRESH_TOKEN",
+              "GMAIL_SENDER_EMAIL",
+            ]
+          : ["RESEND_API_KEY", "EMAIL_FROM"]),
         ...(!publicAppOrigin() ? ["APP_URL"] : []),
       ].filter((k) => k === "APP_URL" || !process.env[k]),
       docs: "https://resend.com/docs/dashboard/domains/introduction",

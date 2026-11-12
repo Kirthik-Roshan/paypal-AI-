@@ -2,6 +2,7 @@ import { z } from "zod";
 import { audit, DomainError, now, one, run } from "../db";
 import { getRequest, invitationByToken } from "../domain";
 import type { Workspace } from "../types";
+import { gmailSender } from "./gmail";
 
 export function publicAppOrigin() {
   try {
@@ -52,7 +53,8 @@ export async function emailInvitation(
       "Deploy the app and set APP_URL to its public HTTPS origin before emailing invitations.",
       503,
     );
-  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM)
+  const useGmail = process.env.EMAIL_PROVIDER === "gmail";
+  if (!useGmail && (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM))
     throw new DomainError(
       "Email setup required: set RESEND_API_KEY and EMAIL_FROM to a verified sender.",
       503,
@@ -68,6 +70,8 @@ export async function emailInvitation(
       "An email attempt already exists. Check the email provider before sending another invitation.",
       409,
     );
+  // Authorize before claiming a send attempt: token failure cannot deliver mail.
+  const sendGmail = useGmail ? await gmailSender(transport) : null;
   // Unique invitation ID prevents concurrent clicks and retries after uncertain delivery.
   const claimed = run(
     "INSERT OR IGNORE INTO invitation_emails (invitation_id,status,created_at,updated_at) VALUES (?,'sending',?,?)",
@@ -78,21 +82,25 @@ export async function emailInvitation(
   if (!claimed.changes)
     throw new DomainError("This invitation already has an email attempt.", 409);
   try {
-    const response = await transport("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-        "Idempotency-Key": `quote-invitation/${inv.id}`,
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM,
-        to: [recipient.data],
-        subject: `Quotation requested: ${request.title}`,
-        text: `Hello ${supplier.contact || supplier.company},\n\n${w.name} invites you to provide a written quotation for ${request.title}.\n\nOpen your private supplier portal:\n${origin}/quote/${token}\n\nThis link expires on ${inv.expires_at}. Keep it private. You can view the confirmed requirements, submit your quotation and respond to an agreement through this link. No buyer account is required.\n\nThis enquiry is not a confirmed order.\n\n${w.name} via ProcureProof`,
-      }),
-      signal: AbortSignal.timeout(20000),
-    });
+    const subject = `Quotation requested: ${request.title}`;
+    const text = `Hello ${supplier.contact || supplier.company},\n\n${w.name} invites you to provide a written quotation for ${request.title}.\n\nOpen your private supplier portal:\n${origin}/quote/${token}\n\nThis link expires on ${inv.expires_at}. Keep it private. You can view the confirmed requirements, submit your quotation and respond to an agreement through this link. No buyer account is required.\n\nThis enquiry is not a confirmed order.\n\n${w.name} via ProcureProof`;
+    const response = sendGmail
+      ? await sendGmail(recipient.data, subject, text)
+      : await transport("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+            "Idempotency-Key": `quote-invitation/${inv.id}`,
+          },
+          body: JSON.stringify({
+            from: process.env.EMAIL_FROM,
+            to: [recipient.data],
+            subject,
+            text,
+          }),
+          signal: AbortSignal.timeout(20000),
+        });
     if (!response.ok) {
       run(
         "UPDATE invitation_emails SET status=?,updated_at=? WHERE invitation_id=?",
