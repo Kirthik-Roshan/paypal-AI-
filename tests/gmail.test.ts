@@ -49,6 +49,17 @@ test("Gmail uses refreshed authorization and a base64url MIME message over HTTPS
   await assert.rejects(
     gmailSender((async () =>
       Response.json(
+        {
+          error: "invalid_client",
+          error_description: "do not expose provider text",
+        },
+        { status: 401 },
+      )) as typeof fetch),
+    /401: invalid_client.*not a Places API key/,
+  );
+  await assert.rejects(
+    gmailSender((async () =>
+      Response.json(
         { error: "invalid_grant" },
         { status: 400 },
       )) as typeof fetch),

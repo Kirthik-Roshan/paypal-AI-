@@ -22,11 +22,27 @@ export async function gmailSender(transport: typeof fetch) {
     }).toString(),
     signal: AbortSignal.timeout(15000),
   });
-  if (!auth.ok)
+  if (!auth.ok) {
+    const failure = await auth.json().catch(() => ({}));
+    const code = [
+      "invalid_client",
+      "invalid_grant",
+      "unauthorized_client",
+      "invalid_scope",
+    ].includes(failure.error)
+      ? failure.error
+      : "authorization_error";
+    const hint =
+      code === "invalid_client"
+        ? "Check GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET: use the same Google OAuth client configured in OAuth Playground, not a Places API key or GitHub credentials."
+        : code === "invalid_grant"
+          ? "Generate a new refresh token using your own Google OAuth credentials in Playground, then update GMAIL_REFRESH_TOKEN."
+          : "Check the Google OAuth client, refresh token and gmail.send consent.";
     throw new DomainError(
-      `Google authorization failed (${auth.status}). Reconnect the sender with gmail.send permission. No email was sent.`,
+      `Google authorization failed (${auth.status}: ${code}). ${hint} No email was sent.`,
       503,
     );
+  }
   const token = z
     .object({ access_token: z.string().min(1) })
     .parse(await auth.json());
